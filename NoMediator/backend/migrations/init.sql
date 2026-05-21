@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  phone TEXT,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'Tenant',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);

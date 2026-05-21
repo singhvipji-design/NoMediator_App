@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "NoMediator",
+    "slug": "nomediator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios", "android", "web"],
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#E8121A"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nomediator.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E8121A"
+      },
+      "package": "com.nomediator.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
+  }
+}
