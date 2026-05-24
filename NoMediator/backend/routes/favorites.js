@@ -32,6 +32,9 @@ function mapPropertyToCamelCase(row) {
     available: row.available,
     ownerName: row.owner_name || null,
     ownerPhone: row.owner_phone || null,
+    ownerEmail: row.owner_email || null,
+    contactEmail: row.contact_email || null,
+    contactPhone: row.contact_phone || null,
     rating: 4.2,
     reviews: 15,
     createdAt: row.created_at
@@ -42,7 +45,7 @@ function mapPropertyToCamelCase(row) {
 router.get('/', auth, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT p.*, u.name as owner_name, u.phone as owner_phone
+      `SELECT p.*, u.name as owner_name, u.phone as owner_phone, u.email as owner_email
        FROM favorites f
        JOIN properties p ON f.property_id = p.id
        JOIN users u ON p.owner_id = u.id

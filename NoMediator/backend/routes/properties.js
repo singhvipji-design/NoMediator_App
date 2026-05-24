@@ -32,8 +32,13 @@ function mapPropertyToCamelCase(row) {
     available: row.available,
     ownerName: row.owner_name || null,
     ownerPhone: row.owner_phone || null,
+    ownerEmail: row.owner_email || null,
+    contactEmail: row.contact_email || null,
+    contactPhone: row.contact_phone || null,
     rating: 4.2, // Mocked for display
     reviews: 15,  // Mocked for display
+    images: row.images || [],
+    videos: row.videos || [],
     createdAt: row.created_at
   };
 }
@@ -43,7 +48,7 @@ router.get('/', async (req, res) => {
   const { city, type, search, bhk, maxPrice, furnished } = req.query;
   
   let queryText = `
-    SELECT p.*, u.name as owner_name, u.phone as owner_phone
+    SELECT p.*, u.name as owner_name, u.phone as owner_phone, u.email as owner_email
     FROM properties p
     JOIN users u ON p.owner_id = u.id
     WHERE 1=1
@@ -103,7 +108,7 @@ router.get('/', async (req, res) => {
 router.get('/my-listings', auth, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT p.*, u.name as owner_name, u.phone as owner_phone 
+      `SELECT p.*, u.name as owner_name, u.phone as owner_phone, u.email as owner_email 
        FROM properties p
        JOIN users u ON p.owner_id = u.id
        WHERE p.owner_id = $1
@@ -127,7 +132,7 @@ router.get('/:id', async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT p.*, u.name as owner_name, u.phone as owner_phone 
+      `SELECT p.*, u.name as owner_name, u.phone as owner_phone, u.email as owner_email 
        FROM properties p
        JOIN users u ON p.owner_id = u.id
        WHERE p.id = $1`,
@@ -149,7 +154,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', auth, async (req, res) => {
   const {
     title, location, area, city, price, deposit, bhk, sqft, beds, baths, type, furnished,
-    parking, petFriendly, gym, lift, security, colorStart, colorEnd, tag, available
+    parking, petFriendly, gym, lift, security, colorStart, colorEnd, tag, available,
+    images, videos, contactEmail, contactPhone
   } = req.body;
 
   if (!title || !location || !area || !city || !price || !deposit || !bhk || !sqft || !type) {
@@ -160,8 +166,9 @@ router.post('/', auth, async (req, res) => {
     const result = await db.query(
       `INSERT INTO properties (
         owner_id, title, location, area, city, price, deposit, bhk, sqft, beds, baths, type, furnished, 
-        parking, pet_friendly, gym, lift, security, color_start, color_end, tag, available
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+        parking, pet_friendly, gym, lift, security, color_start, color_end, tag, available, images, videos,
+        contact_email, contact_phone
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
       RETURNING *`,
       [
         req.user.userId,
@@ -185,13 +192,17 @@ router.post('/', auth, async (req, res) => {
         colorStart || '#E8121A',
         colorEnd || '#FF6F00',
         tag || 'Zero Brokerage',
-        available || 'Immediate'
+        available || 'Immediate',
+        images || [],
+        videos || [],
+        contactEmail || null,
+        contactPhone || null
       ]
     );
 
     // Fetch the inserted property with owner name/phone
     const propertyResult = await db.query(
-      `SELECT p.*, u.name as owner_name, u.phone as owner_phone
+      `SELECT p.*, u.name as owner_name, u.phone as owner_phone, u.email as owner_email
        FROM properties p
        JOIN users u ON p.owner_id = u.id
        WHERE p.id = $1`,
@@ -206,3 +217,4 @@ router.post('/', auth, async (req, res) => {
 });
 
 module.exports = router;
+

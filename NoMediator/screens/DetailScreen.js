@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, Alert
+  SafeAreaView, Alert, Image, Dimensions, Platform, Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,12 +10,28 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
 export default function DetailScreen({ route, navigation }) {
-  const { property } = route.params;
+  const { property } = route?.params || {};
   const { token } = useAuth();
   const [saved, setSaved] = useState(false);
   const [contactRevealed, setContactRevealed] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(Dimensions.get('window').width);
+
+  const handleLayout = (event) => {
+    const { width } = event.nativeEvent.layout;
+    setContainerWidth(width);
+  };
+
+  const mediaList = [
+    ...(property?.images || []).map(img => ({ type: 'image', uri: img })),
+    ...(property?.videos || []).map(vid => ({ type: 'video', uri: vid }))
+  ];
+  const hasMedia = mediaList.length > 0;
 
   useEffect(() => {
+    if (!property) {
+      navigation.navigate('Home');
+      return;
+    }
     const checkIfSaved = async () => {
       if (!token) return;
       try {
@@ -27,7 +43,17 @@ export default function DetailScreen({ route, navigation }) {
       }
     };
     checkIfSaved();
-  }, [property.id, token]);
+  }, [property?.id, token]);
+
+  if (!property) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleToggleFavorite = async () => {
     if (!token) {
@@ -54,14 +80,44 @@ export default function DetailScreen({ route, navigation }) {
       ]);
       return;
     }
+    const displayPhone = property.contactPhone || property.ownerPhone || 'N/A';
+    const displayEmail = property.contactEmail || property.ownerEmail || 'N/A';
     try {
       await api.createInquiry(property.id, token);
       setContactRevealed(true);
-      Alert.alert('Owner Contact', `${property.ownerName}\n${property.ownerPhone}`, [{ text: 'Call Now' }, { text: 'Close' }]);
+      Alert.alert('Owner Contact Details', `Name: ${property.ownerName}\nPhone: ${displayPhone}\nEmail: ${displayEmail}`, [{ text: 'Close' }]);
     } catch (err) {
       console.error('Error registering inquiry:', err);
       setContactRevealed(true);
-      Alert.alert('Owner Contact', `${property.ownerName}\n${property.ownerPhone}`, [{ text: 'Call Now' }, { text: 'Close' }]);
+      Alert.alert('Owner Contact Details', `Name: ${property.ownerName}\nPhone: ${displayPhone}\nEmail: ${displayEmail}`, [{ text: 'Close' }]);
+    }
+  };
+
+  const handleMailToOwner = () => {
+    const email = property.contactEmail || property.ownerEmail;
+    if (!email) return;
+
+    const subject = encodeURIComponent('Property Availability Inquiry');
+    const body = encodeURIComponent(
+      'Hello,\n\nI am interested in your property listing and would like to know if it is still available. Could you please share your contact number, exact location, and any additional details about the property?\n\nThank you.'
+    );
+
+    if (Platform.OS === 'web') {
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}&body=${body}`;
+      try {
+        window.open(gmailUrl, '_blank');
+      } catch (err) {
+        console.error('Failed to open Gmail Web:', err);
+        // Fallback to mailto link if window.open fails
+        const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+        window.location.href = mailtoUrl;
+      }
+    } else {
+      const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+      Linking.openURL(mailtoUrl).catch(err => {
+        console.error('Failed to open mail app:', err);
+        Alert.alert('Error', 'Could not open mail application.');
+      });
     }
   };
 
@@ -120,19 +176,63 @@ export default function DetailScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Hero */}
-        <LinearGradient colors={[property.colorStart, property.colorEnd]} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color={COLORS.white} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.saveBtn} onPress={handleToggleFavorite}>
-            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? '#FF5252' : COLORS.white} />
-          </TouchableOpacity>
-          <View style={styles.heroBadge}>
-            <Ionicons name="shield-checkmark" size={14} color={COLORS.white} />
-            <Text style={styles.heroBadgeText}>Posted by Owner · Zero Brokerage</Text>
+        {/* Hero / Media Carousel */}
+        {hasMedia ? (
+          <View style={{ height: 220, position: 'relative' }} onLayout={handleLayout}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={true}
+              style={{ height: 220 }}
+            >
+              {mediaList.map((item, idx) => (
+                <View key={idx} style={{ width: containerWidth, height: 220 }}>
+                  {item.type === 'image' ? (
+                    <Image source={{ uri: item.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : Platform.OS === 'web' ? (
+                    <video
+                      src={item.uri}
+                      controls
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#000' }}
+                    />
+                  ) : (
+                    <View style={{ width: '100%', height: '100%', backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="videocam" size={48} color={COLORS.white} />
+                      <Text style={{ color: COLORS.white, marginTop: 8, fontSize: 12 }}>Video Preview (Mobile)</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Overlay Header controls */}
+            <View style={styles.overlayHeader}>
+              <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                <Ionicons name="arrow-back" size={20} color={COLORS.white} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveOverlayBtn} onPress={handleToggleFavorite}>
+                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? '#FF5252' : COLORS.white} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.overlayBadge}>
+              <Ionicons name="shield-checkmark" size={14} color={COLORS.white} />
+              <Text style={styles.heroBadgeText}>Posted by Owner · Zero Brokerage</Text>
+            </View>
           </View>
-        </LinearGradient>
+        ) : (
+          <LinearGradient colors={[property.colorStart, property.colorEnd]} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={20} color={COLORS.white} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleToggleFavorite}>
+              <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? '#FF5252' : COLORS.white} />
+            </TouchableOpacity>
+            <View style={styles.heroBadge}>
+              <Ionicons name="shield-checkmark" size={14} color={COLORS.white} />
+              <Text style={styles.heroBadgeText}>Posted by Owner · Zero Brokerage</Text>
+            </View>
+          </LinearGradient>
+        )}
 
         <View style={styles.body}>
           {/* Price & title */}
@@ -201,21 +301,45 @@ export default function DetailScreen({ route, navigation }) {
 
           {/* Owner card */}
           <Text style={styles.sectionHead}>Owner Details</Text>
-          <View style={styles.ownerCard}>
-            <View style={styles.ownerAvatar}>
-              <Text style={styles.ownerInitials}>{property.ownerName ? property.ownerName.split(' ').map(n => n[0]).join('') : 'O'}</Text>
-            </View>
-            <View style={styles.ownerInfo}>
-              <Text style={styles.ownerName}>{property.ownerName || 'Owner'}</Text>
-              <View style={styles.ownerBadge}>
-                <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
-                <Text style={styles.ownerBadgeText}>Verified Owner</Text>
+          <View style={[styles.ownerCard, contactRevealed && { flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={styles.ownerAvatar}>
+                <Text style={styles.ownerInitials}>{property.ownerName ? property.ownerName.split(' ').map(n => n[0]).join('') : 'O'}</Text>
               </View>
+              <View style={styles.ownerInfo}>
+                <Text style={styles.ownerName}>{property.ownerName || 'Owner'}</Text>
+                <View style={styles.ownerBadge}>
+                  <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
+                  <Text style={styles.ownerBadgeText}>Verified Owner</Text>
+                </View>
+              </View>
+              {!contactRevealed && (
+                <TouchableOpacity style={styles.contactBtn} onPress={revealContact}>
+                  <Ionicons name="call-outline" size={16} color={COLORS.white} />
+                  <Text style={styles.contactBtnText}>Contact</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <TouchableOpacity style={styles.contactBtn} onPress={revealContact}>
-              <Ionicons name="call-outline" size={16} color={COLORS.white} />
-              <Text style={styles.contactBtnText}>{contactRevealed ? 'Calling...' : 'Contact'}</Text>
-            </TouchableOpacity>
+            {contactRevealed && (
+              <View style={styles.revealedContactDetails}>
+                <View style={styles.revealedRow}>
+                  <Ionicons name="call" size={16} color={COLORS.primary} />
+                  <Text style={styles.revealedText}>{property.contactPhone || property.ownerPhone || 'N/A'}</Text>
+                </View>
+                <View style={[styles.revealedRow, { justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+                    <Ionicons name="mail" size={16} color={COLORS.primary} />
+                    <Text style={styles.revealedText} numberOfLines={1} ellipsizeMode="tail">{property.contactEmail || property.ownerEmail || 'N/A'}</Text>
+                  </View>
+                  {(property.contactEmail || property.ownerEmail) && (
+                    <TouchableOpacity style={styles.mailBtn} onPress={handleMailToOwner}>
+                      <Ionicons name="paper-plane" size={12} color={COLORS.primary} />
+                      <Text style={styles.mailBtnText}>Mail to Owner</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Services */}
@@ -248,7 +372,7 @@ export default function DetailScreen({ route, navigation }) {
         </TouchableOpacity>
         <TouchableOpacity style={styles.contactBarBtn} onPress={revealContact}>
           <Ionicons name="call-outline" size={18} color={COLORS.white} />
-          <Text style={styles.contactBarBtnText}>Contact Owner</Text>
+          <Text style={styles.contactBarBtnText}>{contactRevealed ? 'Details Revealed' : 'Contact Owner'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -326,4 +450,68 @@ const styles = StyleSheet.create({
   scheduleBtnText: { fontSize: SIZES.md, color: COLORS.primary, fontWeight: '600' },
   contactBarBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: SIZES.radius, backgroundColor: COLORS.primary },
   contactBarBtnText: { fontSize: SIZES.md, color: COLORS.white, fontWeight: '600' },
+  overlayHeader: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  saveOverlayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlayBadge: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  revealedContactDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderColor: COLORS.border,
+    gap: 8,
+  },
+  revealedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  revealedText: {
+    fontSize: SIZES.md,
+    color: COLORS.textPrimary,
+    fontWeight: '500',
+  },
+  mailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: SIZES.radius || 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  mailBtnText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });

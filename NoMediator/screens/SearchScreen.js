@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, TextInput, ActivityIndicator
+  SafeAreaView, TextInput, ActivityIndicator, ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -96,15 +96,27 @@ export default function SearchScreen({ navigation }) {
           <Text style={styles.resultCount}>{filtered.length} properties found</Text>
 
           <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
-            {filtered.map(p => (
-              <TouchableOpacity key={p.id} style={styles.card} onPress={() => navigation.navigate('Detail', { property: p })} activeOpacity={0.9}>
-                <LinearGradient colors={[p.colorStart, p.colorEnd]} style={styles.cardImg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                  <View style={styles.cardTag}><Text style={styles.cardTagText}>{p.tag}</Text></View>
-                  <View style={styles.postedByBadge}>
-                    <Ionicons name="shield-checkmark" size={12} color={COLORS.white} />
-                    <Text style={styles.postedByText}>Owner</Text>
-                  </View>
-                </LinearGradient>
+            {filtered.map(p => {
+              const hasImage = p.images && p.images.length > 0;
+              return (
+                <TouchableOpacity key={p.id} style={styles.card} onPress={() => navigation.navigate('Detail', { property: p })} activeOpacity={0.9}>
+                  {hasImage ? (
+                    <ImageBackground source={{ uri: p.images[0] }} style={styles.cardImg} resizeMode="cover">
+                      <View style={styles.cardTag}><Text style={styles.cardTagText}>{p.tag}</Text></View>
+                      <View style={styles.postedByBadge}>
+                        <Ionicons name="shield-checkmark" size={12} color={COLORS.white} />
+                        <Text style={styles.postedByText}>Owner</Text>
+                      </View>
+                    </ImageBackground>
+                  ) : (
+                    <LinearGradient colors={[p.colorStart, p.colorEnd]} style={styles.cardImg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                      <View style={styles.cardTag}><Text style={styles.cardTagText}>{p.tag}</Text></View>
+                      <View style={styles.postedByBadge}>
+                        <Ionicons name="shield-checkmark" size={12} color={COLORS.white} />
+                        <Text style={styles.postedByText}>Owner</Text>
+                      </View>
+                    </LinearGradient>
+                  )}
                 <View style={styles.cardBody}>
                   <View style={styles.cardTitleRow}>
                     <Text style={styles.cardTitle} numberOfLines={1}>{p.title}</Text>
@@ -121,7 +133,7 @@ export default function SearchScreen({ navigation }) {
                   </View>
                 </View>
               </TouchableOpacity>
-            ))}
+            )})}
             {filtered.length === 0 && (
               <View style={styles.empty}>
                 <Ionicons name="search-outline" size={56} color={COLORS.grayMid} />

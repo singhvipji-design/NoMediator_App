@@ -122,4 +122,44 @@ export const api = {
     }
     return response.json();
   },
+
+  // Auth Profile
+  updateProfile: async (profileData, token) => {
+    const response = await fetch(`${API_URL}/api/auth/profile`, {
+      method: 'PUT',
+      headers: getHeaders(token),
+      body: JSON.stringify(profileData),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to update profile.');
+    }
+    return response.json();
+  },
+
+  // Service Bookings
+  bookService: async (bookingData, token) => {
+    const response = await fetch(`${API_URL}/api/service-bookings`, {
+      method: 'POST',
+      headers: getHeaders(token),
+      body: JSON.stringify(bookingData),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to book service.');
+    }
+    return response.json();
+  },
+
+  getServiceBookings: async (token) => {
+    const response = await fetch(`${API_URL}/api/service-bookings`, {
+      method: 'GET',
+      headers: getHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch service bookings.');
+    }
+    return response.json();
+  },
 };
+

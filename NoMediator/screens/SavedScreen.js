@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, ActivityIndicator, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -89,11 +89,19 @@ export default function SavedScreen({ navigation }) {
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Detail', { property: item })} activeOpacity={0.9}>
-              <LinearGradient colors={[item.colorStart, item.colorEnd]} style={styles.cardImg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                <TouchableOpacity style={styles.removeBtn} onPress={() => remove(item.id)}>
-                  <Ionicons name="heart" size={20} color={COLORS.primary} />
-                </TouchableOpacity>
-              </LinearGradient>
+              {item.images && item.images.length > 0 ? (
+                <ImageBackground source={{ uri: item.images[0] }} style={styles.cardImg} resizeMode="cover">
+                  <TouchableOpacity style={styles.removeBtn} onPress={() => remove(item.id)}>
+                    <Ionicons name="heart" size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                </ImageBackground>
+              ) : (
+                <LinearGradient colors={[item.colorStart, item.colorEnd]} style={styles.cardImg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <TouchableOpacity style={styles.removeBtn} onPress={() => remove(item.id)}>
+                    <Ionicons name="heart" size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                </LinearGradient>
+              )}
               <View style={styles.cardBody}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
                 <View style={styles.locRow}>

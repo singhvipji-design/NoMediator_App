@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  SafeAreaView, ScrollView, ActivityIndicator, Alert, Platform
+  SafeAreaView, ScrollView, ActivityIndicator, Alert, Platform, Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,28 @@ export default function LoginScreen({ navigation }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const { login, register, loading } = useAuth();
+
+  const { login, register, loading, loginWithGoogle, loginWithPhoneOTP, sendPhoneOTP } = useAuth();
+
+  // Google Login modal states
+  const [googleModalVisible, setGoogleModalVisible] = useState(false);
+  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
+  const [customGoogleName, setCustomGoogleName] = useState('');
+  const [showCustomGoogle, setShowCustomGoogle] = useState(false);
+
+  // Phone OTP login modal states
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [otpPhone, setOtpPhone] = useState('+91 ');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpStep, setOtpStep] = useState(1); // 1 = Phone, 2 = Code
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [isMockMode, setIsMockMode] = useState(true);
+
+  const googleAccounts = [
+    { name: 'Lalit Singhs', email: 'singhvipji@gmail.com', avatar: 'LS' },
+    { name: 'Tenant User', email: 'tenant@nomediator.com', avatar: 'TU' },
+    { name: 'Suresh Kumar', email: 'suresh@nomediator.com', avatar: 'SK' },
+  ];
 
   const handleLogin = async () => {
     if (!email || !password) { Alert.alert('Error', 'Please fill all fields'); return; }
@@ -25,6 +46,74 @@ export default function LoginScreen({ navigation }) {
   const handleRegister = async () => {
     if (!name || !email || !phone || !password) { Alert.alert('Error', 'Please fill all fields'); return; }
     await register(name, email, phone, password);
+  };
+
+  const handleGoogleSelect = async (gEmail, gName) => {
+    setGoogleModalVisible(false);
+    await loginWithGoogle(gEmail, gName);
+  };
+
+  const handleCustomGoogleSubmit = async () => {
+    if (!customGoogleEmail) {
+      Alert.alert('Error', 'Please enter your email');
+      return;
+    }
+    setGoogleModalVisible(false);
+    const ok = await loginWithGoogle(customGoogleEmail, customGoogleName);
+    if (ok) {
+      setCustomGoogleEmail('');
+      setCustomGoogleName('');
+      setShowCustomGoogle(false);
+    }
+  };
+
+  const handlePhoneInputChange = (text) => {
+    if (text.length < 4) {
+      setOtpPhone('+91 ');
+    } else {
+      setOtpPhone(text);
+    }
+  };
+
+  const handleSendOTP = async () => {
+    const cleanPhone = otpPhone.trim();
+    if (!cleanPhone.startsWith('+91')) {
+      Alert.alert('Invalid Number', 'Phone number must start with +91');
+      return;
+    }
+
+    const suffix = cleanPhone.substring(3).trim();
+    const digitsOnly = suffix.replace(/\s/g, '');
+    if (!/^\d{10}$/.test(digitsOnly)) {
+      Alert.alert('Invalid Number', 'Please enter exactly 10 digits after the +91 country code.');
+      return;
+    }
+
+    setSendingOtp(true);
+    const res = await sendPhoneOTP(cleanPhone);
+    setSendingOtp(false);
+    if (res.success) {
+      setIsMockMode(res.data?.mockMode === true);
+      setOtpStep(2);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otpCode) {
+      Alert.alert('Error', 'Please enter the 6-digit OTP');
+      return;
+    }
+    if (isMockMode && otpCode !== '123456') {
+      Alert.alert('Invalid OTP', 'The mock OTP is 123456');
+      return;
+    }
+    setOtpModalVisible(false);
+    const ok = await loginWithPhoneOTP(otpPhone, otpCode);
+    if (ok) {
+      setOtpPhone('+91 ');
+      setOtpCode('');
+      setOtpStep(1);
+    }
   };
 
   return (
@@ -104,12 +193,12 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           {/* Social login */}
-          <TouchableOpacity style={styles.socialBtn}>
+          <TouchableOpacity style={styles.socialBtn} onPress={() => { setShowCustomGoogle(false); setGoogleModalVisible(true); }}>
             <Ionicons name="logo-google" size={20} color='#DB4437' />
             <Text style={styles.socialText}>Continue with Google</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.socialBtn, { marginTop: 10 }]}>
+          <TouchableOpacity style={[styles.socialBtn, { marginTop: 10 }]} onPress={() => { setOtpStep(1); setOtpPhone('+91 '); setOtpCode(''); setOtpModalVisible(true); }}>
             <Ionicons name="call-outline" size={20} color={COLORS.primary} />
             <Text style={styles.socialText}>Continue with Phone OTP</Text>
           </TouchableOpacity>
@@ -120,6 +209,131 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.termsLink}>Privacy Policy</Text>
         </Text>
       </ScrollView>
+
+      {/* Modal 1: Google login chooser */}
+      <Modal visible={googleModalVisible} animationType="fade" transparent={true} onRequestClose={() => setGoogleModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.googleModalContainer}>
+            <View style={styles.googleHeader}>
+              <View style={styles.googleIconBox}>
+                <Ionicons name="logo-google" size={24} color="#DB4437" />
+              </View>
+              <Text style={styles.googleTitle}>Sign in with Google</Text>
+              <Text style={styles.googleSubtitle}>to continue to NoMediator</Text>
+            </View>
+
+            {!showCustomGoogle ? (
+              <ScrollView style={styles.accountsList} showsVerticalScrollIndicator={false}>
+                {googleAccounts.map((acc, idx) => (
+                  <TouchableOpacity key={idx} style={styles.accountRow} onPress={() => handleGoogleSelect(acc.email, acc.name)}>
+                    <View style={styles.avatarBox}>
+                      <Text style={styles.avatarText}>{acc.avatar}</Text>
+                    </View>
+                    <View style={styles.accountTextDetails}>
+                      <Text style={styles.accountName}>{acc.name}</Text>
+                      <Text style={styles.accountEmail}>{acc.email}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.gray} />
+                  </TouchableOpacity>
+                ))}
+
+                <TouchableOpacity style={styles.addAccountRow} onPress={() => setShowCustomGoogle(true)}>
+                  <View style={[styles.avatarBox, { backgroundColor: COLORS.grayLight }]}>
+                    <Ionicons name="person-add" size={16} color={COLORS.textSecondary} />
+                  </View>
+                  <Text style={styles.addAccountText}>Use another account</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : (
+              <View style={styles.customGoogleForm}>
+                <Text style={styles.modalInputLabel}>Name</Text>
+                <View style={styles.modalInputBox}>
+                  <Ionicons name="person-outline" size={16} color={COLORS.gray} />
+                  <TextInput style={styles.modalInput} placeholder="Enter your full name" value={customGoogleName} onChangeText={setCustomGoogleName} placeholderTextColor={COLORS.gray} />
+                </View>
+
+                <Text style={styles.modalInputLabel}>Gmail Address</Text>
+                <View style={styles.modalInputBox}>
+                  <Ionicons name="mail-outline" size={16} color={COLORS.gray} />
+                  <TextInput style={styles.modalInput} placeholder="name@gmail.com" value={customGoogleEmail} onChangeText={setCustomGoogleEmail} keyboardType="email-address" autoCapitalize="none" placeholderTextColor={COLORS.gray} />
+                </View>
+
+                <View style={styles.modalFormButtons}>
+                  <TouchableOpacity style={styles.modalFormCancelBtn} onPress={() => setShowCustomGoogle(false)}>
+                    <Text style={styles.modalFormCancelText}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalFormSubmitBtn} onPress={handleCustomGoogleSubmit}>
+                    <Text style={styles.modalFormSubmitText}>Sign In</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.googleCloseBtn} onPress={() => setGoogleModalVisible(false)}>
+              <Text style={styles.googleCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal 2: Phone OTP Login */}
+      <Modal visible={otpModalVisible} animationType="fade" transparent={true} onRequestClose={() => setOtpModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.otpModalContainer}>
+            <View style={styles.googleHeader}>
+              <View style={[styles.googleIconBox, { backgroundColor: COLORS.primaryLight }]}>
+                <Ionicons name="call" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.googleTitle}>{otpStep === 1 ? 'Continue with Phone' : 'Enter Verification OTP'}</Text>
+              <Text style={styles.googleSubtitle}>
+                {otpStep === 1 ? 'Verify your mobile number to sign in.' : `OTP sent to ${otpPhone}`}
+              </Text>
+            </View>
+
+            {otpStep === 1 ? (
+              <View style={styles.otpForm}>
+                <Text style={styles.modalInputLabel}>Mobile Number</Text>
+                <View style={styles.modalInputBox}>
+                  <Ionicons name="call-outline" size={16} color={COLORS.gray} />
+                  <TextInput style={styles.modalInput} placeholder="e.g. +91 98765 43210" value={otpPhone} onChangeText={handlePhoneInputChange} keyboardType="phone-pad" placeholderTextColor={COLORS.gray} />
+                </View>
+
+                <TouchableOpacity style={styles.otpSubmitBtn} onPress={handleSendOTP} disabled={sendingOtp}>
+                  {sendingOtp ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.otpSubmitText}>Send Verification OTP</Text>}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.otpForm}>
+                {isMockMode && (
+                  <View style={styles.otpInfoAlert}>
+                    <Ionicons name="information-circle" size={16} color={COLORS.success} />
+                    <Text style={styles.otpInfoText}>For local demonstration, enter the mock OTP code: <Text style={{ fontWeight: '700' }}>123456</Text></Text>
+                  </View>
+                )}
+
+                <Text style={styles.modalInputLabel}>Verification Code (OTP)</Text>
+                <View style={styles.modalInputBox}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.gray} />
+                  <TextInput style={styles.modalInput} placeholder="Enter 6-digit OTP" value={otpCode} onChangeText={setOtpCode} keyboardType="number-pad" maxLength={6} placeholderTextColor={COLORS.gray} />
+                </View>
+
+                <View style={styles.modalFormButtons}>
+                  <TouchableOpacity style={styles.modalFormCancelBtn} onPress={() => setOtpStep(1)}>
+                    <Text style={styles.modalFormCancelText}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalFormSubmitBtn, { backgroundColor: COLORS.primary }]} onPress={handleVerifyOTP}>
+                    <Text style={styles.modalFormSubmitText}>Verify & Login</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.googleCloseBtn} onPress={() => setOtpModalVisible(false)}>
+              <Text style={styles.googleCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -151,4 +365,207 @@ const styles = StyleSheet.create({
   socialText: { fontSize: SIZES.md, color: COLORS.textPrimary, fontWeight: '500' },
   terms: { fontSize: SIZES.xs, color: COLORS.gray, textAlign: 'center', lineHeight: 18 },
   termsLink: { color: COLORS.primary },
+
+  // Modals Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  googleModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radiusMd,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+    alignItems: 'stretch'
+  },
+  googleHeader: {
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  googleIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  googleTitle: {
+    fontSize: SIZES.lg,
+    fontWeight: '700',
+    color: COLORS.textPrimary
+  },
+  googleSubtitle: {
+    fontSize: SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: 4
+  },
+  accountsList: {
+    maxHeight: 240,
+    marginBottom: 16
+  },
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderColor: COLORS.border,
+    gap: 12
+  },
+  avatarBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  avatarText: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 14
+  },
+  accountTextDetails: {
+    flex: 1
+  },
+  accountName: {
+    fontSize: SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary
+  },
+  accountEmail: {
+    fontSize: SIZES.sm,
+    color: COLORS.textSecondary
+  },
+  addAccountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12
+  },
+  addAccountText: {
+    fontSize: SIZES.md,
+    color: COLORS.textPrimary,
+    fontWeight: '500'
+  },
+  googleCloseBtn: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderTopWidth: 0.5,
+    borderColor: COLORS.border,
+    marginTop: 8
+  },
+  googleCloseText: {
+    fontSize: SIZES.md,
+    color: COLORS.textSecondary,
+    fontWeight: '600'
+  },
+  customGoogleForm: {
+    marginBottom: 16
+  },
+  modalInputLabel: {
+    fontSize: SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+    fontWeight: '500'
+  },
+  modalInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'web' ? 12 : 4,
+    marginBottom: 16,
+    backgroundColor: COLORS.white,
+    gap: 10
+  },
+  modalInput: {
+    flex: 1,
+    fontSize: SIZES.md,
+    color: COLORS.textPrimary,
+    outlineStyle: 'none'
+  },
+  modalFormButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8
+  },
+  modalFormCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  modalFormCancelText: {
+    fontSize: SIZES.md,
+    color: COLORS.textSecondary,
+    fontWeight: '600'
+  },
+  modalFormSubmitBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: SIZES.radius,
+    backgroundColor: '#DB4437'
+  },
+  modalFormSubmitText: {
+    fontSize: SIZES.md,
+    color: COLORS.white,
+    fontWeight: '600'
+  },
+  otpModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radiusMd,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+    alignItems: 'stretch'
+  },
+  otpForm: {
+    marginBottom: 16
+  },
+  otpSubmitBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: SIZES.radius,
+    backgroundColor: COLORS.primary,
+    marginTop: 8
+  },
+  otpSubmitText: {
+    fontSize: SIZES.md,
+    color: COLORS.white,
+    fontWeight: '700'
+  },
+  otpInfoAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.successLight,
+    padding: 10,
+    borderRadius: SIZES.radius,
+    marginBottom: 16,
+    gap: 8
+  },
+  otpInfoText: {
+    fontSize: 11,
+    color: COLORS.success,
+    flex: 1
+  },
 });

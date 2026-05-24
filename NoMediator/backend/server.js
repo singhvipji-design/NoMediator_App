@@ -6,13 +6,15 @@ const propertyRoutes = require('./routes/properties');
 const favoriteRoutes = require('./routes/favorites');
 const visitRoutes = require('./routes/visits');
 const inquiryRoutes = require('./routes/inquiries');
+const serviceBookingRoutes = require('./routes/serviceBookings');
 const { pool } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -20,6 +22,7 @@ app.use('/api/properties', propertyRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/visits', visitRoutes);
 app.use('/api/inquiries', inquiryRoutes);
+app.use('/api/service-bookings', serviceBookingRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

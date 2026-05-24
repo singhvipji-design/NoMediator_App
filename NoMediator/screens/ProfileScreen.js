@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, Modal, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
@@ -8,11 +8,18 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
 export default function ProfileScreen({ navigation }) {
-  const { user, token, logout } = useAuth();
+  const { user, token, logout, updateProfile } = useAuth();
   const [listingsCount, setListingsCount] = useState(0);
   const [visitsCount, setVisitsCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Edit Profile States
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   const fetchStats = async () => {
     if (!token) return;
@@ -40,10 +47,38 @@ export default function ProfileScreen({ navigation }) {
   );
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
-    ]);
+    if (Platform.OS === 'web') {
+      const confirmLogout = window.confirm('Are you sure you want to logout?');
+      if (confirmLogout) {
+        logout();
+      }
+    } else {
+      Alert.alert('Logout', 'Are you sure you want to logout?', [
+        { text: 'Cancel' },
+        { text: 'Logout', style: 'destructive', onPress: logout },
+      ]);
+    }
+  };
+
+  const handleEditProfile = () => {
+    setEditName(user?.name || '');
+    setEditEmail(user?.email || '');
+    setEditPhone(user?.phone || '');
+    setEditModalVisible(true);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!editName || !editEmail) {
+      Alert.alert('Validation Error', 'Name and Email are required.');
+      return;
+    }
+    setUpdating(true);
+    const success = await updateProfile(editName, editEmail, editPhone);
+    setUpdating(false);
+    if (success) {
+      setEditModalVisible(false);
+      Alert.alert('Success', 'Profile updated successfully.');
+    }
   };
 
   const handleItemPress = (item) => {
@@ -103,7 +138,7 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.userName}>{user?.name}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
           <Text style={styles.userPhone}>{user?.phone}</Text>
-          <TouchableOpacity style={styles.editProfileBtn}>
+          <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}>
             <Ionicons name="pencil-outline" size={14} color={COLORS.white} />
             <Text style={styles.editProfileText}>Edit Profile</Text>
           </TouchableOpacity>
@@ -160,6 +195,69 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.version}>NoMediator v1.0.0 · Zero Brokerage</Text>
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
+              <Text style={styles.modalLabel}>Full Name</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter your name"
+                value={editName}
+                onChangeText={setEditName}
+                placeholderTextColor={COLORS.gray}
+              />
+
+              <Text style={styles.modalLabel}>Email Address</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter your email"
+                value={editEmail}
+                onChangeText={setEditEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={COLORS.gray}
+              />
+
+              <Text style={styles.modalLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter phone number"
+                value={editPhone}
+                onChangeText={setEditPhone}
+                keyboardType="phone-pad"
+                placeholderTextColor={COLORS.gray}
+              />
+
+              <TouchableOpacity 
+                style={styles.saveBtn} 
+                onPress={handleSaveChanges}
+                disabled={updating}
+              >
+                {updating ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -212,5 +310,69 @@ const styles = StyleSheet.create({
   emptySub: { fontSize: SIZES.md, color: COLORS.textSecondary, textAlign: 'center' },
   browseBtn: { backgroundColor: COLORS.primary, borderRadius: SIZES.radius, paddingHorizontal: 28, paddingVertical: 12, marginTop: 8 },
   browseBtnText: { color: COLORS.white, fontSize: SIZES.md, fontWeight: '700' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 450,
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radiusMd,
+    overflow: 'hidden',
+    ...SHADOW.medium,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: SIZES.lg,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  modalForm: {
+    padding: 20,
+  },
+  modalLabel: {
+    fontSize: SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  modalInput: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: SIZES.md,
+    color: COLORS.textPrimary,
+    marginBottom: 16,
+    outlineStyle: 'none',
+  },
+  saveBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radius,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  saveBtnText: {
+    color: COLORS.white,
+    fontSize: SIZES.md,
+    fontWeight: '700',
+  },
 });
 

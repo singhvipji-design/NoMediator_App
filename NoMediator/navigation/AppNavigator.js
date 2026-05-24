@@ -13,6 +13,9 @@ import DetailScreen from '../screens/DetailScreen';
 import PostScreen from '../screens/PostScreen';
 import SavedScreen from '../screens/SavedScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import PaintingCleaningScreen from '../screens/PaintingCleaningScreen';
+import ServiceDetailScreen from '../screens/ServiceDetailScreen';
+import BookingsScreen from '../screens/BookingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -23,6 +26,9 @@ function HomeStack() {
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Detail" component={DetailScreen} />
       <Stack.Screen name="Post" component={PostScreen} />
+      <Stack.Screen name="PaintingCleaning" component={PaintingCleaningScreen} />
+      <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
+      <Stack.Screen name="Bookings" component={BookingsScreen} />
     </Stack.Navigator>
   );
 }

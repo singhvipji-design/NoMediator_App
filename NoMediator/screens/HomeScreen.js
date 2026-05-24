@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, TextInput, FlatList, Platform, Alert, ActivityIndicator
+  SafeAreaView, TextInput, FlatList, Platform, Alert, ActivityIndicator, ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,7 +11,7 @@ import { SERVICES, PROPERTY_TYPES, CITIES } from '../constants/data';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const { user, token } = useAuth();
   const [activeType, setActiveType] = useState('Full House');
   const [city, setCity] = useState('Bengaluru');
@@ -19,6 +19,19 @@ export default function HomeScreen({ navigation }) {
   const [properties, setProperties] = useState([]);
   const [favorites, setFavorites] = useState(new Set());
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (route.params?.selectCity || route.params?.selectType) {
+      if (route.params.selectCity) {
+        setCity(route.params.selectCity);
+      }
+      if (route.params.selectType) {
+        setActiveType(route.params.selectType);
+      }
+      // Clear route parameters so they do not overwrite user filter selections in subsequent screens
+      navigation.setParams({ selectCity: undefined, selectType: undefined });
+    }
+  }, [route.params]);
 
   const fetchPropertiesAndFavorites = async () => {
     try {
@@ -133,7 +146,17 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.sectionTitle}>Our Services</Text>
           <View style={styles.servicesGrid}>
             {SERVICES.map(s => (
-              <TouchableOpacity key={s.id} style={styles.serviceItem}>
+              <TouchableOpacity
+                key={s.id}
+                style={styles.serviceItem}
+                onPress={() => {
+                  if (s.id === 's5') {
+                    navigation.navigate('PaintingCleaning');
+                  } else {
+                    Alert.alert('Coming Soon', `${s.label} service is coming soon!`);
+                  }
+                }}
+              >
                 <View style={[styles.serviceIcon, { backgroundColor: s.color + '18' }]}>
                   <Ionicons name={s.icon} size={24} color={s.color} />
                   {s.badge && <View style={styles.serviceBadge}><Text style={styles.serviceBadgeText}>{s.badge}</Text></View>}
@@ -190,18 +213,32 @@ export default function HomeScreen({ navigation }) {
 }
 
 function PropertyCard({ property, saved, onSaveToggle, onPress }) {
+  const hasImage = property.images && property.images.length > 0;
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      <LinearGradient colors={[property.colorStart, property.colorEnd]} style={styles.cardImg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <View style={styles.cardTag}><Text style={styles.cardTagText}>{property.tag}</Text></View>
-        <TouchableOpacity style={styles.saveBtn} onPress={onSaveToggle}>
-          <Ionicons name={saved ? 'heart' : 'heart-outline'} size={18} color={saved ? COLORS.primary : COLORS.white} />
-        </TouchableOpacity>
-        <View style={styles.postedByBadge}>
-          <Ionicons name="shield-checkmark" size={12} color={COLORS.white} />
-          <Text style={styles.postedByText}>Owner</Text>
-        </View>
-      </LinearGradient>
+      {hasImage ? (
+        <ImageBackground source={{ uri: property.images[0] }} style={styles.cardImg} resizeMode="cover">
+          <View style={styles.cardTag}><Text style={styles.cardTagText}>{property.tag}</Text></View>
+          <TouchableOpacity style={styles.saveBtn} onPress={onSaveToggle}>
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={18} color={saved ? COLORS.primary : COLORS.white} />
+          </TouchableOpacity>
+          <View style={styles.postedByBadge}>
+            <Ionicons name="shield-checkmark" size={12} color={COLORS.white} />
+            <Text style={styles.postedByText}>Owner</Text>
+          </View>
+        </ImageBackground>
+      ) : (
+        <LinearGradient colors={[property.colorStart, property.colorEnd]} style={styles.cardImg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <View style={styles.cardTag}><Text style={styles.cardTagText}>{property.tag}</Text></View>
+          <TouchableOpacity style={styles.saveBtn} onPress={onSaveToggle}>
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={18} color={saved ? COLORS.primary : COLORS.white} />
+          </TouchableOpacity>
+          <View style={styles.postedByBadge}>
+            <Ionicons name="shield-checkmark" size={12} color={COLORS.white} />
+            <Text style={styles.postedByText}>Owner</Text>
+          </View>
+        </LinearGradient>
+      )}
       <View style={styles.cardBody}>
         <View style={styles.cardTitleRow}>
           <Text style={styles.cardTitle} numberOfLines={1}>{property.title}</Text>

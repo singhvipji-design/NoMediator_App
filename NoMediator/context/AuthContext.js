@@ -119,6 +119,69 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async (email, name) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name }),
+      });
+      const data = await handleResponse(response);
+      
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      
+      setToken(data.token);
+      setUser(data.user);
+      setLoading(false);
+      return true;
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Google Login Error', error.message);
+      return false;
+    }
+  };
+
+  const loginWithPhoneOTP = async (phone, otp) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/otp/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp }),
+      });
+      const data = await handleResponse(response);
+      
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      
+      setToken(data.token);
+      setUser(data.user);
+      setLoading(false);
+      return true;
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('OTP Verification Error', error.message);
+      return false;
+    }
+  };
+
+  const sendPhoneOTP = async (phone) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await handleResponse(response);
+      return { success: true, data };
+    } catch (error) {
+      Alert.alert('Send OTP Error', error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
@@ -130,13 +193,39 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updateProfile = async (name, email, phone) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ name, email, phone }),
+      });
+      const data = await handleResponse(response);
+      
+      // Save updated user to AsyncStorage
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      
+      setUser(data.user);
+      setLoading(false);
+      return true;
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Profile Update Error', error.message);
+      return false;
+    }
+  };
+
   // Don't show anything while initializing
   if (isInitializing) {
     return null;
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateProfile, loginWithGoogle, loginWithPhoneOTP, sendPhoneOTP }}>
       {children}
     </AuthContext.Provider>
   );
