@@ -65,7 +65,7 @@ export default function PaintingCleaningScreen({ navigation }) {
   const [paintingModalVisible, setPaintingModalVisible] = useState(false);
   const [activeCategory, setActiveCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Carousel State
   const [currentSlide, setCurrentSlide] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -89,7 +89,7 @@ export default function PaintingCleaningScreen({ navigation }) {
     } else {
       Alert.alert('Coming Soon', `${category.label} booking is currently in development!`);
     }
-  };  const handleSubServiceSelect = (subServiceName) => {
+  }; const handleSubServiceSelect = (subServiceName) => {
     setSubServiceModalVisible(false);
     navigation.navigate('ServiceDetail', {
       serviceName: subServiceName,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 7, color: COLORS.white, fontWeight: '700' },
   gridLabel: { fontSize: 10, color: COLORS.textPrimary, fontWeight: '600', textAlign: 'center' },
-  
+
   // Carousel CSS
   carouselContainer: { flex: 1, minHeight: 220, alignSelf: 'stretch' },
   carouselCard: {
